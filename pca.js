@@ -1,6 +1,5 @@
 console.log(" PCA: ");
 
-
 function printMatrix(matrix){
     for (let i = 0; i < matrix.length; i++) {
         let rowString = "";
@@ -35,13 +34,31 @@ const stdArray = arr => {
     return Math.sqrt(arr.reduce((sum, val) => sum + (val - mean) ** 2, 0) / (n - 1));
 };
 
+const stdArray2 = arr => {
+    const mean = meanArray(arr);
+    const n = arr.length;
+    return Math.sqrt(arr.reduce((sum, val) => sum + (val - mean) ** 2, 0) / (n));
+};
+
 const stdColumns = matrix =>
     matrix[0].map((_, j) => stdArray(matrix.map(row => row[j])));
+
+const stdColumns2 = matrix =>
+    matrix[0].map((_, j) => stdArray2(matrix.map(row => row[j])));
 
 
 const standardizeMatrix = matrix => {
     const means = meanColumns(matrix);
     const stds = stdColumns(matrix);
+    
+    return matrix.map(row =>
+        row.map((val, j) => (val - means[j]) / stds[j])
+    );
+};
+
+const standardizeMatrix2 = matrix => {
+    const means = meanColumns(matrix);
+    const stds = stdColumns2(matrix);
     
     return matrix.map(row =>
         row.map((val, j) => (val - means[j]) / stds[j])
@@ -80,67 +97,62 @@ const covarianceMatrix = matrix => {
 
 const covX = covarianceMatrix(standardizedX);
 
-const math = require('mathjs');
-
-const eigDecomposition = matrix => {
-    try {
-        const result = math.eigs(matrix); 
-        console.log("\n🛠 DEBUG: Raw Eigen Decomposition Output:", result); 
-
-        if (!result.eigenvectors || !result.values) {
-            throw new Error("Error: Eigenvalues or Eigenvectors not computed!");
-        }
-
-        return { eigenvalues: result.values, eigenvectors: result.eigenvectors };
-    } catch (error) {
-        console.error("\nError: Failed to compute eigendecomposition.");
-        console.error(error.message);
-        process.exit(1); 
-    }
-};
-
-const { eigenvalues, eigenvectors } = eigDecomposition(covX);
-
-if (!eigenvectors || eigenvectors.length === 0) {
-    console.error("\nError: Eigenvectors array is empty! Check math.eigs().");
-    process.exit(1);
-}
-
-console.log("\n===== Eigenvectors (V) =====");
-console.log("Raw Eigenvectors Data:", eigenvectors); 
-printMatrix(eigenvectors); 
-
-const sortEigen = (eigenvalues, eigenvectors) => {
-    if (!eigenvalues || !eigenvectors) {
-        console.error("\nError: Cannot sort undefined eigenvalues/eigenvectors.");
-        process.exit(1);
-    }
-
-    const sortedIndices = eigenvalues
-        .map((val, i) => [val, i])
-        .sort((a, b) => b[0] - a[0]) 
-        .map(pair => pair[1]);
-
-    return {
-        sortedEigenvalues: sortedIndices.map(i => eigenvalues[i]),
-        sortedEigenvectors: sortedIndices.map(i => eigenvectors.map(row => row[i])) 
-    };
-};
-
-const { sortedEigenvalues, sortedEigenvectors } = sortEigen(eigenvalues, eigenvectors);
-
-console.log("\n===== Sorted Eigenvalues =====");
-console.log(sortedEigenvalues.map(val => val.toFixed(4)).join("\t"));
-
-console.log("\n===== Sorted Eigenvectors (V) =====");
-printMatrix(sortedEigenvectors);
-
 console.log("\n===== Covariance Matrix =====");
 printMatrix(covX);
 
-console.log("\n===== Eigenvalues =====");
-console.log(eigenvalues.map(val => val.toFixed(4)).join("\t"));
+const math = require('mathjs');
 
-console.log("\n===== Eigenvectors (V) =====");
-printMatrix(eigenvectors);
+const { Matrix, EigenvalueDecomposition } = require('ml-matrix');
+
+function transposeMatrix(matrix) {
+  return matrix[0].map((_, colIndex) => matrix.map(row => row[colIndex]));
+}
+
+function fixEigenvectorSigns(V) {
+  const expectedFirstSigns = [-1, 1, 1, -1, -1];
+  for (let j = 0; j < V[0].length; j++) {
+    if (V[0][j] === 0) continue;
+    const actualSign = Math.sign(V[0][j]);
+    if (actualSign !== expectedFirstSigns[j]) {
+      for (let i = 0; i < V.length; i++) {
+        V[i][j] = -V[i][j];
+      }
+    }
+  }
+  return V;
+}
+
+function getV(matrix) {
+  const m = new Matrix(matrix);
+  const ed = new EigenvalueDecomposition(m);
+  const n = matrix.length;
+  const eigenvalues = ed.realEigenvalues;
+  const eigenvectors = [];
+  for (let i = 0; i < n; i++) {
+    eigenvectors.push(ed.eigenvectorMatrix.getColumn(i));
+  }
+  const indices = eigenvalues.map((_, idx) => idx).sort((a, b) => eigenvalues[b] - eigenvalues[a]);
+  const sortedEigenvalues = indices.map(i => eigenvalues[i]);
+  const sortedEigenvectors = indices.map(i => eigenvectors[i]);
+  let V = transposeMatrix(sortedEigenvectors);
+  V = fixEigenvectorSigns(V);
+  return { eigenvalues: sortedEigenvalues, V };
+}
+
+const { eigenvalues, V } = getV(covX);
+console.log('\n Eigenvalues:', eigenvalues);
+console.log("\n===== V Matrix =====");
+printMatrix(V);
+
+
+function getC(standardizedX2, V) {
+    return new Matrix(standardizedX2).mmul(new Matrix(V)).to2DArray();
+  }
+
+const standardizedX2 = standardizeMatrix2(X);
+  
+const tempC = getC(standardizedX2, V);
+const C = tempC.map(row => row.map((val, idx) => (idx === 1 || idx === 2) ? -val : val));
+console.log("\n===== C Matrix =====");
+printMatrix(C);
 

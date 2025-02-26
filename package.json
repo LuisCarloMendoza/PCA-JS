@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "mathjs": "^14.2.1"
+    "mathjs": "^14.2.1",
+    "ml-matrix": "^6.12.0"
   }
 }
