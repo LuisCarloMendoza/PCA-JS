@@ -1,5 +1,7 @@
 console.log(" PCA: ");
 
+// Calculations:
+
 function printMatrix(matrix){
     for (let i = 0; i < matrix.length; i++) {
         let rowString = "";
@@ -9,6 +11,9 @@ function printMatrix(matrix){
         console.log(rowString.trim());
     }
 }
+
+const names = ["Lucia", "Pedro", "Ines", "Luis", "Andres", "Ana", "Carlos", "Jose", "Sonia", "Maria"];
+const variableNames = ["Matematicas", "Ciencias", "Espanol", "Historia", "EdFisica"];
 
 const X = [
     [7.0, 6.5, 9.2, 8.6, 8.0],
@@ -155,4 +160,93 @@ const tempC = getC(standardizedX2, V);
 const C = tempC.map(row => row.map((val, idx) => (idx === 1 || idx === 2) ? -val : val));
 console.log("\n===== C Matrix =====");
 printMatrix(C);
+
+function computeQualityIndividuals(C) {
+    const r = C.length, c = C[0].length;
+    const Q = new Array(r);
+    for (let i = 0; i < r; i++) {
+      Q[i] = new Array(c);
+      const rowSum = C[i].reduce((acc, x) => acc + x * x, 0);
+      for (let j = 0; j < c; j++) {
+        Q[i][j] = (C[i][j] * C[i][j]) / rowSum;
+      }
+    }
+    return Q;
+  }
+  
+  const Q = computeQualityIndividuals(C);
+  console.log("\n===== Q Matrix =====");
+  printMatrix(Q);
+  
+  function computeVariableCoordinates(eigenvectors, eigenvalues) {
+    const numVariables = eigenvectors.length, numComponents = eigenvectors[0].length;
+    const T = new Array(numVariables);
+    for (let i = 0; i < numVariables; i++) {
+      T[i] = new Array(numComponents);
+      for (let j = 0; j < numComponents; j++) {
+        T[i][j] = eigenvectors[i][j] * Math.sqrt(eigenvalues[j]);
+      }
+    }
+    return T;
+  }
+  
+  const T = computeVariableCoordinates(V, eigenvalues);
+  console.log("\n===== T Matrix =====");
+  printMatrix(T);
+  
+  function transposeMatrix(matrix) {
+    const rows = matrix.length, cols = matrix[0].length;
+    const result = new Array(cols);
+    for (let j = 0; j < cols; j++) {
+      result[j] = new Array(rows);
+      for (let i = 0; i < rows; i++) {
+        result[j][i] = matrix[i][j];
+      }
+    }
+    return result;
+  }
+  
+  function multiplyMatrices(A, B) {
+    const rowsA = A.length, colsA = A[0].length, colsB = B[0].length;
+    const result = new Array(rowsA);
+    for (let i = 0; i < rowsA; i++) {
+      result[i] = new Array(colsB).fill(0);
+      for (let j = 0; j < colsB; j++) {
+        for (let k = 0; k < colsA; k++) {
+          result[i][j] += A[i][k] * B[k][j];
+        }
+      }
+    }
+    return result;
+  }
+  
+  function computeQualityVariables(T) {
+    const TTranspose = transposeMatrix(T);
+    return multiplyMatrices(T, TTranspose);
+  }
+  
+  const S = computeQualityVariables(T);
+  console.log("\n===== S Matrix =====");
+  printMatrix(S);
+  
+  function computeInertiaVector(eigenvalues) {
+    const sum = eigenvalues.reduce((acc, x) => acc + x, 0);
+    const I = new Array(eigenvalues.length);
+    for (let i = 0; i < eigenvalues.length; i++) {
+      I[i] = (eigenvalues[i] / sum) * 100;
+    }
+    return I;
+  }
+  
+const I = computeInertiaVector(eigenvalues);
+console.log("\n===== Inertia Vector =====");
+console.log(I);
+
+  // Graphs:
+  module.exports = {
+    C,
+    names,
+    T,
+    variableNames
+  };
 
